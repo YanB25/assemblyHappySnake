@@ -2,7 +2,7 @@
 
 data segment
     # add your data here!
-    pkey db "press any key...$"
+    sGameOver db "GAME OVER!!!$"
     PRN dw 0 # save the last random number
     map db 100 dup(0)
     headX dw 3
@@ -11,7 +11,7 @@ data segment
     tailY dw 2
     fruitX dw 0
     fruitY dw 0
-    lastPress db 2
+    lastPress db 'd'
 ends
 
 stack segment
@@ -37,11 +37,17 @@ LOOP2:
     call calHeadIndex
     call changeHeadPos # change cx
     call changeTailPos
-    #call checkOver
     #call checkEatFruit
     call clearScrean
     jmp LOOP
 
+    mov ah, 4ch
+    int 21h
+GameOver:
+    call clearScrean
+    lea dx, sGameOver
+    mov ah, 9
+    int 21h
     mov ah, 4ch
     int 21h
 initialMap:
@@ -182,6 +188,7 @@ changeHeadPos:
     cmp [map + di], 4
     je headLeft
 changeHeadPosFinish:
+    call checkGameOver
     call calHeadIndex
     mov di, ax
     mov [map + di], cl
@@ -283,7 +290,21 @@ changeHeadToDown:
 changeHeadToLeft:
     mov [map + di], 4
     jmp changeHeadDirectionFinish
-    
+ checkGameOver:
+    push di
+    call calHeadIndex
+    mov di, ax
+    mov al, [map + di]
+    cmp al, 0
+    jne IsFruit
+    pop di
+    ret
+IsFruit:
+    cmp al, 8
+    jne GameOver 
+    #TODO!:check eat fruit
+    #jmp eatFruit
+    ret
 
 
 
