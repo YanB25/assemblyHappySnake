@@ -12,6 +12,7 @@ data segment
     fruitX dw 0
     fruitY dw 0
     lastPress db 'd'
+    hasEatenFruit db 0
 ends
 
 stack segment
@@ -28,6 +29,15 @@ start:
     call initialFruit
 LOOP:
     call printMap
+    mov cx, 00004H
+    mov dx, 0FFFFH
+Delay:
+    dec dx
+    cmp dx, 0
+    je DelayHelper
+back:
+    cmp cx, 0
+    jne Delay
     call unBlockedInput
     cmp ax, 0
     je LOOP2
@@ -37,7 +47,6 @@ LOOP2:
     call calHeadIndex
     call changeHeadPos # change cx
     call changeTailPos
-    #call checkEatFruit
     call clearScrean
     jmp LOOP
 
@@ -50,6 +59,12 @@ GameOver:
     int 21h
     mov ah, 4ch
     int 21h
+DelayHelper:
+    mov dx, 0FFFFH
+    dec cx
+    jmp back
+
+
 initialMap:
     # preCond : none
     # postCond : initial the map
@@ -188,6 +203,7 @@ changeHeadPos:
     cmp [map + di], 4
     je headLeft
 changeHeadPosFinish:
+    call checkEatFruit
     call checkGameOver
     call calHeadIndex
     mov di, ax
@@ -216,6 +232,8 @@ headRight:
     jmp changeHeadPosFinish
 
 changeTailPos:
+    cmp hasEatenFruit, 1
+    je changeTailPosReturn
     push di
     push bx
     call calTailIndex
@@ -233,6 +251,8 @@ changeTailPosFinish:
     mov [map + di], 0
     pop bx
     pop di
+changeTailPosReturn:
+    mov hasEatenFruit, 0
     ret
 changeTailPosUp:
     mov ax, tailY
@@ -290,23 +310,58 @@ changeHeadToDown:
 changeHeadToLeft:
     mov [map + di], 4
     jmp changeHeadDirectionFinish
- checkGameOver:
+checkGameOver:
     push di
     call calHeadIndex
     mov di, ax
     mov al, [map + di]
     cmp al, 0
-    jne IsFruit
+    jne GameOver
     pop di
     ret
-IsFruit:
-    cmp al, 8
-    jne GameOver 
-    #TODO!:check eat fruit
-    #jmp eatFruit
+
+checkEatFruit:
+    # preCond : none
+    # postCond : change hasEatenFruit
+    push di
+    push bx
+    push cx
+    call calHeadIndex
+    mov di, ax
+    mov bl, [map + di]
+    cmp bl, 8
+    je eatFruit 
+checkEatFruitBack: 
+    pop cx
+    pop bx
+    pop di
     ret
+eatFruit:
+    mov hasEatenFruit, 1
+    push cx
+    push di
+    call getNextFruit
+    pop di
+    pop cx
+    mov [map + di], 0
+    jmp checkEatFruitBack
 
-
+getNextFruit:
+    # preCond : has reached the fruit
+    # postCond : get next fruit in an empty space
+    call getRandom
+    mov fruitX, ax
+    call getRandom
+    mov fruitY, ax
+    mov cx, 10
+    mul cx
+    add ax, fruitX
+    mov di, ax
+    mov al, [map + di]
+    cmp al, 0
+    jne getNextFruit
+    mov [map + di], 8
+    ret
 
 unBlockedInput:
     # preCond: none
