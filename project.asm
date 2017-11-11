@@ -4,15 +4,15 @@ data segment
     # add your data here!
     sGameOver db "GAME OVER!!!$"
     PRN dw 0 # save the last random number
-    map db 100 dup(0)
-    headX dw 3
+    map db 100 dup(0) # save the 10 X 10 map
+    headX dw 3 # head of the snake
     headY dw 2
-    tailX dw 1
+    tailX dw 1 # tail of the sname
     tailY dw 2
     fruitX dw 0
     fruitY dw 0
-    lastPress db 'd'
-    hasEatenFruit db 0
+    lastPress db 'd' # the key that is pressed. default to 'D', meaning turn right
+    hasEatenFruit db 0 # a flag that indicates whether a fruit has been eaten
 ends
 
 stack segment
@@ -20,7 +20,7 @@ stack segment
 ends
 
 code segment
-    assume ds:data
+    assume ds:data, ss:stack
 start:        
     mov ax, data
     mov ds, ax
@@ -42,10 +42,10 @@ back:
     cmp ax, 0
     je LOOP2
     mov lastPress, al # have been a bug
-    call changeHeadDirection # change di
+    call changeHeadDirection
 LOOP2:
     call calHeadIndex
-    call changeHeadPos # change cx
+    call changeHeadPos
     call changeTailPos
     call clearScrean
     jmp LOOP
@@ -68,6 +68,7 @@ DelayHelper:
 initialMap:
     # preCond : none
     # postCond : initial the map
+    #   mark the border in the mpa
     push di
     mov di, 0
 HeadBar:
@@ -111,6 +112,7 @@ initialSnake:
     ret
 
 printMap:
+    push di
     mov di, 0
     mov cx, 10
 printMapLoop:
@@ -164,6 +166,7 @@ printFruit:
     inc di
     jmp printMapLoop
 printMapEnd:
+    pop di
     ret
 
 initialFruit:
@@ -190,7 +193,6 @@ initialFruitEND:
 changeHeadPos:
     # preCond : ax is head index
     # postCond: adjust headX and headY
-    # change: cx
     push di
     mov di, ax
     mov cl, [map + di]
@@ -203,7 +205,9 @@ changeHeadPos:
     cmp [map + di], 4
     je headLeft
 changeHeadPosFinish:
+    push cx
     call checkEatFruit
+    pop cx
     call checkGameOver
     call calHeadIndex
     mov di, ax
@@ -279,9 +283,8 @@ changeTailPosLeft:
 changeHeadDirection:
     # preCond : ax must be the key it pressed
     # postCond : change direction
-    # change : di
     push bx
-    push cx
+    push di
     call calHeadIndex
     mov di, ax
     mov bl, lastPress
@@ -295,7 +298,7 @@ changeHeadDirection:
     cmp bl, 'a'
     je changeHeadToLeft
 changeHeadDirectionFinish:
-    pop cx
+    pop di
     pop bx
     ret
 changeHeadToUp:
@@ -325,23 +328,19 @@ checkEatFruit:
     # postCond : change hasEatenFruit
     push di
     push bx
-    push cx
     call calHeadIndex
     mov di, ax
     mov bl, [map + di]
     cmp bl, 8
     je eatFruit 
 checkEatFruitBack: 
-    pop cx
     pop bx
     pop di
     ret
 eatFruit:
     mov hasEatenFruit, 1
     push cx
-    push di
     call getNextFruit
-    pop di
     pop cx
     mov [map + di], 0
     jmp checkEatFruitBack
@@ -356,11 +355,17 @@ getNextFruit:
     mov cx, 10
     mul cx
     add ax, fruitX
+    push di
     mov di, ax
+    mov dx, ax
     mov al, [map + di]
+    pop di
     cmp al, 0
     jne getNextFruit
+    push di
+    mov di, dx
     mov [map + di], 8
+    pop di
     ret
 
 unBlockedInput:
@@ -392,7 +397,6 @@ printASCII:
 getRandom:
     # preCond : dx is the last random number
     # post ax : random number 0 ~ 9
-    # change ax, cx, dx
     mov AH, 00h   # interrupt to get system timer in CX:DX 
     int 1AH
     mov [PRN], dx
@@ -411,12 +415,10 @@ CalcNew:
 getIndex:
     # preCond : bx is X, cx is Y for point(x, y)
     # postCond : ax = y * 10 + x
-    push cx
     mov ax, cx             
     mov cx, 10
     mul cx
     add ax, bx       
-    pop cx
     ret
 clearScrean:
     # preCond : none
@@ -427,22 +429,18 @@ clearScrean:
 calHeadIndex:
     # preCond : none
     # postCond : ax <- index of head
-    push dx
     mov ax, headY
     mov dx, 10
     mul dx
     add ax, headX
-    pop dx
     ret
 calTailIndex:
     # preCond : none
     # postCond : ax <- index of head
-    push dx
     mov ax, tailY
     mov dx, 10
     mul dx
     add ax, tailX
-    pop dx
     ret    
 code ends
 end start # set entry point and stop the assembler.
